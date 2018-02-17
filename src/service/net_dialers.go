@@ -56,15 +56,15 @@ func (t *tcpPinger) DialBatchIp(targetIp string, targetPort int, batchSize int) 
 		outcome := t.DialIp(targetIp, targetPort)
 		currLatencyFloat := float32(outcome.Latency)
 		avgLatency = InPlaceAvg(avgLatency, currLatencyFloat, i)
-		Logger.Printf("Iteration %d curr latency %f curr avg %f\n", i, currLatencyFloat, avgLatency)
+		// Logger.Printf("Iteration %d curr latency %f curr avg %f\n", i, currLatencyFloat, avgLatency)
 		if outcome.Latency >= t.timeout {
 			unSuccessCount++
 		}
 	}
 	durationAvgLatency := time.Duration(avgLatency)
-	Logger.Printf("Final avg: %s\n", durationAvgLatency)
+	// Logger.Printf("Final avg: %s\n", durationAvgLatency)
 	pctPacketLoss := float32(unSuccessCount) / float32(batchSize)
-	Logger.Printf("Percentage of packet loss: %f\n", pctPacketLoss)
+	// Logger.Printf("Percentage of packet loss: %f\n", pctPacketLoss)
 
 	return model.TcpBatch{
 		IpAddress: targetIp, TcpPort: targetPort,
@@ -77,7 +77,7 @@ func (t *tcpPinger) DialBatchIp(targetIp string, targetPort int, batchSize int) 
 func (t *tcpPinger) DialIp(targetIp string, targetPort int) model.TcpCall {
 	start := time.Now()
 	tcpAddress := fmt.Sprintf("%s:%d", targetIp, targetPort)
-	Logger.Printf("The TCP address to dial is: %v with timeout (duration): %v\n", tcpAddress, t.timeout)
+	// Logger.Printf("The TCP address to dial is: %v with timeout (duration): %v\n", tcpAddress, t.timeout)
 	conn, err := net.DialTimeout("tcp", tcpAddress, t.timeout)
 	tcpProtoMsg := model.TcpCall{IpAddress: targetIp, TcpPort: targetPort}
 	if err != nil {
@@ -106,12 +106,12 @@ func (t *tcpPinger) AsyncTcpDialsForIp(targetIp string) {
 func (t *tcpPinger) AsyncTcpDialBatchesForIp(targetIp string, batchSize int) {
 	for _, targetPort := range t.ports {
 		go func(t *tcpPinger, targetIp string, targetPort int, batchSize int) {
-			Logger.Printf("Batch dialing IP %s and TCP port %d\n", targetIp, targetPort)
+			// Logger.Printf("Batch dialing IP %s and TCP port %d\n", targetIp, targetPort)
 			t.msgBatchChan <- t.DialBatchIp(targetIp, targetPort, batchSize)
 		}(t, targetIp, targetPort, batchSize)
-		Logger.Printf("Done async spawn of TCP calls for IP %s and port %d", targetIp, targetPort)
+		// Logger.Printf("Done async spawn of TCP calls for IP %s and port %d", targetIp, targetPort)
 	}
-	Logger.Printf("Done spawning TCP dials for host %s \n", targetIp)
+	// Logger.Printf("Done spawning TCP dials for host %s \n", targetIp)
 }
 
 func (t *tcpPinger) SpawnTcpDials(siteNetDetails []string) {
@@ -125,7 +125,7 @@ func (t *tcpPinger) SpawnTcpDials(siteNetDetails []string) {
 func (t *tcpPinger) SpawnTcpDialBatches(siteNetDetails []string, batchSize int) {
 	for _, targetIp := range siteNetDetails {
 		t.AsyncTcpDialBatchesForIp(targetIp, batchSize)
-		Logger.Printf("Spawned TCP dials for IP %s", targetIp)
+		// Logger.Printf("Spawned TCP dials for IP %s", targetIp)
 	}
 }
 
@@ -172,56 +172,56 @@ func (i *icmpPinger) PingIp(targetIp string) {
 
 	p := fastping.NewPinger()
 	p.MaxRTT = i.timoutForIcmpCall
-	Logger.Printf("Setting up the ICMP call for IP %v and timeout (duration): %v\n", targetIp, i.timoutForIcmpCall)
+	// Logger.Printf("Setting up the ICMP call for IP %v and timeout (duration): %v\n", targetIp, i.timoutForIcmpCall)
 
 	ra, err := net.ResolveIPAddr("ip4:icmp", targetIp)
 	if err != nil {
-		fmt.Println("Resolve error on IP:", targetIp)
+		// fmt.Println("Resolve error on IP:", targetIp)
 		i.msgChan <- model.IcmpCall{IpAddress: targetIp, Message: err.Error(), Success: false, Latency: InfiniteLatency}
 		return
 	}
 	p.AddIPAddr(ra)
 
 	p.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
-		Logger.Printf("Received ICMP response for IP %v with latency %v", addr, rtt)
+		// Logger.Printf("Received ICMP response for IP %v with latency %v", addr, rtt)
 		i.msgChan <- model.IcmpCall{IpAddress: addr.String(), Latency: time.Duration(rtt.Nanoseconds()), Success: true}
 		responseReceived = true
 		return
 	}
 	p.OnIdle = func() {
 		if !responseReceived {
-			Logger.Printf("Idling on ICMP call to IP %v with timeout (duration) %v\n", targetIp, i.timoutForIcmpCall)
+			// Logger.Printf("Idling on ICMP call to IP %v with timeout (duration) %v\n", targetIp, i.timoutForIcmpCall)
 			i.msgChan <- model.IcmpCall{IpAddress: targetIp, Message: "This ping call is on timeout", Latency: InfiniteLatency, Success: false}
 		}
 		return
 	}
 	err = p.Run()
 	if err != nil {
-		fmt.Println("Run error on IP:", targetIp) // TODO make something about running this as sudo! (e.g. error channel or panic here?)
+		// fmt.Println("Run error on IP:", targetIp) // TODO make something about running this as sudo! (e.g. error channel or panic here?)
 		i.msgChan <- model.IcmpCall{IpAddress: targetIp, Message: err.Error(), Success: false, Latency: InfiniteLatency}
 		return
 	}
 }
 
 func (i *icmpPinger) PingBatchIp(targetIp string, batchSize int) model.IcmpBatch {
-	Logger.Printf("Running ICMP batch \n")
+	// Logger.Printf("Running ICMP batch \n")
 	avgLatency := float32(0)
 	unSuccessCount := 0
 	for idx := 0; idx < batchSize; idx++ {
-		Logger.Printf("ICMP iteration %d \n", idx)
+		// Logger.Printf("ICMP iteration %d \n", idx)
 		go i.PingIp(targetIp)
 		outcome := <-i.msgChan
 		currLatencyFloat := float32(outcome.Latency)
 		avgLatency = InPlaceAvg(avgLatency, currLatencyFloat, idx)
-		Logger.Printf("Iteration %d curr latency %f curr avg %f\n", idx, currLatencyFloat, avgLatency)
+		// Logger.Printf("Iteration %d curr latency %f curr avg %f\n", idx, currLatencyFloat, avgLatency)
 		if outcome.Latency >= i.timoutForIcmpCall {
 			unSuccessCount++
 		}
 	}
 	durationAvgLatency := time.Duration(avgLatency)
-	Logger.Printf("Final avg: %s\n", durationAvgLatency)
+	// Logger.Printf("Final avg: %s\n", durationAvgLatency)
 	pctPacketLoss := float32(unSuccessCount) / float32(batchSize)
-	Logger.Printf("Percentage of packet loss: %f\n", pctPacketLoss)
+	// Logger.Printf("Percentage of packet loss: %f\n", pctPacketLoss)
 
 	return model.IcmpBatch{
 		IpAddress:    targetIp,
@@ -248,9 +248,9 @@ func (i *icmpPinger) SpawnPings(ips []string) {
 }
 
 func (i *icmpPinger) SpawnBatchPings(ips []string, batchSize int) {
-	for idx, targetIp := range ips {
+	for _, targetIp := range ips {
 		go i.AsyncPingBatchIp(targetIp, batchSize)
-		Logger.Printf("ICMP iteration %d: sent requests for IP %s with batch size: %v\n", idx, targetIp, batchSize)
+		// Logger.Printf("ICMP iteration %d: sent requests for IP %s with batch size: %v\n", idx, targetIp, batchSize)
 	}
-	Logger.Printf("Done spawning %v ICMP pings\n", len(ips))
+	// Logger.Printf("Done spawning %v ICMP pings\n", len(ips))
 }

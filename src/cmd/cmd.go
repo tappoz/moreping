@@ -9,18 +9,15 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TcpCmd(c *cli.Context) error {
+func tcpCmd(c *cli.Context) {
 	service.Logger = log.New(os.Stdout, "[TCP stuff] ", log.LstdFlags)
 
 	domain := c.String("domain")
 	port := c.Int64("port")
 
-	quitChan := service.Schedule(service.TcpBatchFunc([]string{domain}, []int{int(port)}, 10), 5*time.Second)
-
-	time.Sleep(16 * time.Second)
-	close(quitChan)
-
-	return nil
+	service.Schedule(service.TcpBatchFunc([]string{domain}, []int{int(port)}, 10), 5*time.Second)
+	for {
+	}
 }
 
 func sudoCheck() {
@@ -31,16 +28,14 @@ func sudoCheck() {
 	// service.Logger.Printf("Stuff: %s, %s, %s", sudoUid, sudoGid, sudoUser)
 }
 
-func IcmpCmd(c *cli.Context) error {
+func icmpCmd(c *cli.Context) {
 	service.Logger = log.New(os.Stdout, "[ICMP stuff] ", log.LstdFlags)
 
 	sudoCheck()
 	domain := c.String("domain")
 
-	quitChan := service.Schedule(service.IcmpBatchFunc([]string{domain}, 10), 5*time.Second)
+	service.Schedule(service.IcmpBatchFunc([]string{domain}, 10), 5*time.Second)
 
-	time.Sleep(16 * time.Second)
-	close(quitChan)
-
-	return nil
+	for {
+	}
 }

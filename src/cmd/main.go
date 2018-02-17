@@ -18,7 +18,7 @@ func newApp() *cli.App {
 func tcpCommand() cli.Command {
 	return cli.Command{
 		Name:   "tcp",
-		Action: TcpCmd,
+		Action: tcpCmd,
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:  "domain",
@@ -36,7 +36,7 @@ func icmpCommand() cli.Command {
 	return cli.Command{
 		Name:   "icmp",
 		Usage:  "this *must* be run as root because of the internals of ICMP and raw sockets on Linux",
-		Action: IcmpCmd,
+		Action: icmpCmd,
 		Flags: []cli.Flag{
 			cli.StringFlag{
 				Name:  "domain",

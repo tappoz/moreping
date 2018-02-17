@@ -6,17 +6,18 @@ import (
 	"github.com/tappoz/moreping/src/model"
 )
 
+var TcpBatchChan = make(chan model.TcpBatch)
+var IcmpBatchChan = make(chan model.IcmpBatch)
+
 func TcpBatchFunc(websites []string, tcpPorts []int, batchSize int) func() {
-	tcpBatchChan := make(chan model.TcpBatch)
-	tcpPinger := NewTcpBatchPinger(tcpPorts, 1*time.Second, tcpBatchChan)
+	tcpPinger := NewTcpBatchPinger(tcpPorts, 1*time.Second, TcpBatchChan)
 	return func() {
 		tcpPinger.SpawnTcpDialBatches(websites, batchSize)
 	}
 }
 
 func IcmpBatchFunc(websites []string, batchSize int) func() {
-	icmpBatchChan := make(chan model.IcmpBatch)
-	icmpPinger := NewIcmpBatchPinger(1*time.Second, icmpBatchChan)
+	icmpPinger := NewIcmpBatchPinger(1*time.Second, IcmpBatchChan)
 	return func() {
 		icmpPinger.SpawnBatchPings(websites, batchSize)
 	}
@@ -30,10 +31,14 @@ func Schedule(f func(), recurring time.Duration) chan struct{} {
 		for {
 			select {
 			case <-ticker.C:
-				Logger.Printf("! Ticked")
+				// Logger.Printf("! Ticked")
 				go inFunc()
+			case tcpMsg := <-TcpBatchChan:
+				Logger.Printf("Stats: %#v", tcpMsg)
+			case icmpMsg := <-IcmpBatchChan:
+				Logger.Printf("Stats: %#v", icmpMsg)
 			case <-quit:
-				Logger.Printf("! Stopping the scheduler")
+				// Logger.Printf("! Stopping the scheduler")
 				ticker.Stop()
 				return
 			}
