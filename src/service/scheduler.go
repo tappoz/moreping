@@ -3,12 +3,12 @@ package service
 import (
 	"time"
 
-	"github.com/tappoz/tcp-pinger/src/model"
+	"github.com/tappoz/moreping/src/model"
 )
 
-func TcpBatchFunc(websites []string, batchSize int) func() {
+func TcpBatchFunc(websites []string, tcpPorts []int, batchSize int) func() {
 	tcpBatchChan := make(chan model.TcpBatch)
-	tcpPinger := NewTcpBatchPinger([]int{80, 443}, 1*time.Second, tcpBatchChan)
+	tcpPinger := NewTcpBatchPinger(tcpPorts, 1*time.Second, tcpBatchChan)
 	return func() {
 		tcpPinger.SpawnTcpDialBatches(websites, batchSize)
 	}

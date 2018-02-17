@@ -3,7 +3,7 @@ package service_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/tappoz/tcp-pinger/src/service"
+	"github.com/tappoz/moreping/src/service"
 )
 
 var _ = Describe("Common", func() {

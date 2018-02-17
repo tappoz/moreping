@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/tappoz/tcp-pinger/src/model"
+	"github.com/tappoz/moreping/src/model"
 	"github.com/tatsushid/go-fastping"
 )
 

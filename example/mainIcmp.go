@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/tappoz/tcp-pinger/src/service"
+	"github.com/tappoz/moreping/src/service"
 )
 
 func init() {

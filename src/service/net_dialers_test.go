@@ -7,8 +7,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/tappoz/tcp-pinger/src/model"
-	"github.com/tappoz/tcp-pinger/src/service"
+	"github.com/tappoz/moreping/src/model"
+	"github.com/tappoz/moreping/src/service"
 )
 
 var _ = Describe("NetDialers", func() {

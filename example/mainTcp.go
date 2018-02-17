@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/tappoz/tcp-pinger/src/service"
+	"github.com/tappoz/moreping/src/service"
 )
 
 func init() {
@@ -17,7 +17,7 @@ func main() {
 	googleIps, _ := net.LookupHost("google.com")
 	googleIp := googleIps[0]
 
-	quitChan := service.Schedule(service.TcpBatchFunc([]string{googleIp}, 10), 5*time.Second)
+	quitChan := service.Schedule(service.TcpBatchFunc([]string{googleIp}, []int{80, 443}, 10), 5*time.Second)
 
 	time.Sleep(16 * time.Second)
 	close(quitChan)
