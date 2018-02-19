@@ -18,6 +18,14 @@ with other commands like `ping`, `telnet` and `nmap`.
 Run `make`, this will put the command you just built into `/usr/local/bin/`.
 For ICMP calls make sure you are running it as `sudo`.
 
+## Requirements
+
+This code has been tested on:
+
+- Go 1.8
+- Linux/amd64
+- godep v79
+
 ## Tests
 
 Due to how the ICMP protocol internals along with Linux raw sockets,
