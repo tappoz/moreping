@@ -1,13 +1,19 @@
 # Moreping
 
-This project aims at pinging (ICMP) and TCP dialing.
+This project aims at being a pinging (ICMP) and TCP dialing tool.
+
+## Library
+[![GoDoc](https://godoc.org/github.com/tappoz/moreping/src/service?status.svg)](https://godoc.org/github.com/tappoz/moreping/src/service)
+
+This code can be used as a normal Go library to include in your Go project.
+Take a look at the tests in `src/service/net_dialers*` for more details.
+
+## Command
+
 The artifact (command) produced when running `make` shares similarities
 with other commands like `ping`, `telnet` and `nmap`.
 
-This code can also be used as a normal Go library to include in your Go project.
-Take a look at the tests in `src/service/net_dialers*` for more details.
-
-## Install
+### Install
 
 Run `make`, this will put the command you just built into `/usr/local/bin/`.
 For ICMP calls make sure you are running it as `sudo`.
