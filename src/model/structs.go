@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// IcmpCall models a single ICMP call
 type IcmpCall struct {
 	IpAddress string
 	Success   bool
@@ -11,6 +12,7 @@ type IcmpCall struct {
 	Latency   time.Duration
 }
 
+// IcmpBatch models a batch of ICMP calls to a given IP address
 type IcmpBatch struct {
 	IpAddress    string
 	Expertiments int
@@ -21,6 +23,7 @@ type IcmpBatch struct {
 	AvgLatency time.Duration
 }
 
+// TcpCall models a single TCP dial to an IP address and a TCP port
 type TcpCall struct {
 	IpAddress string
 	TcpPort   int // TODO how about nil for numbers?
@@ -28,6 +31,7 @@ type TcpCall struct {
 	Latency   time.Duration
 }
 
+// TcpBatch models a batch of TCP dials to an IP address and a TCP port
 type TcpBatch struct {
 	IpAddress    string
 	TcpPort      int // TODO how about nil for numbers?

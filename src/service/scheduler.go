@@ -9,6 +9,7 @@ import (
 var TcpBatchChan = make(chan model.TcpBatch)
 var IcmpBatchChan = make(chan model.IcmpBatch)
 
+// TcpBatchFunc is a "func" type that can be used to schedule TCP dials
 func TcpBatchFunc(websites []string, tcpPorts []int, batchSize int) func() {
 	tcpPinger := NewTcpBatchPinger(tcpPorts, 1*time.Second, TcpBatchChan)
 	return func() {
@@ -16,6 +17,7 @@ func TcpBatchFunc(websites []string, tcpPorts []int, batchSize int) func() {
 	}
 }
 
+// IcmpBatchFunc is a "func" type that can be used to schedule ICMP calls
 func IcmpBatchFunc(websites []string, batchSize int) func() {
 	icmpPinger := NewIcmpBatchPinger(1*time.Second, IcmpBatchChan)
 	return func() {
@@ -23,6 +25,7 @@ func IcmpBatchFunc(websites []string, batchSize int) func() {
 	}
 }
 
+// Schedule can be used to schedule any of the "func" types.
 func Schedule(f func(), recurring time.Duration) chan struct{} {
 	ticker := time.NewTicker(recurring)
 	quit := make(chan struct{})
