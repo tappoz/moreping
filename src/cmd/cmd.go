@@ -15,7 +15,7 @@ func tcpCmd(c *cli.Context) {
 	domain := c.String("domain")
 	port := c.Int64("port")
 
-	service.Schedule(service.TcpBatchFunc([]string{domain}, []int{int(port)}, 10), 5*time.Second)
+	service.Schedule(service.TCPBatchFunc([]string{domain}, []int{int(port)}, 10), 5*time.Second)
 	for {
 	}
 }

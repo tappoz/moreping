@@ -6,20 +6,20 @@ import (
 	"github.com/tappoz/moreping/src/model"
 )
 
-var TcpBatchChan = make(chan model.TcpBatch)
-var IcmpBatchChan = make(chan model.IcmpBatch)
+var tcpBatchChan = make(chan model.TcpBatch)
+var icmpBatchChan = make(chan model.IcmpBatch)
 
-// TcpBatchFunc is a "func" type that can be used to schedule TCP dials
-func TcpBatchFunc(websites []string, tcpPorts []int, batchSize int) func() {
-	tcpPinger := NewTcpBatchPinger(tcpPorts, 1*time.Second, TcpBatchChan)
+// TCPBatchFunc is a "func" type that can be used to schedule TCP dials
+func TCPBatchFunc(websites []string, tcpPorts []int, batchSize int) func() {
+	tcpPinger := NewTCPBatchPinger(tcpPorts, 1*time.Second, tcpBatchChan)
 	return func() {
-		tcpPinger.SpawnTcpDialBatches(websites, batchSize)
+		tcpPinger.SpawnTCPDialBatches(websites, batchSize)
 	}
 }
 
 // IcmpBatchFunc is a "func" type that can be used to schedule ICMP calls
 func IcmpBatchFunc(websites []string, batchSize int) func() {
-	icmpPinger := NewIcmpBatchPinger(1*time.Second, IcmpBatchChan)
+	icmpPinger := NewIcmpBatchPinger(1*time.Second, icmpBatchChan)
 	return func() {
 		icmpPinger.SpawnBatchPings(websites, batchSize)
 	}
@@ -36,9 +36,9 @@ func Schedule(f func(), recurring time.Duration) chan struct{} {
 			case <-ticker.C:
 				// Logger.Printf("! Ticked")
 				go inFunc()
-			case tcpMsg := <-TcpBatchChan:
+			case tcpMsg := <-tcpBatchChan:
 				Logger.Printf("Stats: %#v", tcpMsg)
-			case icmpMsg := <-IcmpBatchChan:
+			case icmpMsg := <-icmpBatchChan:
 				Logger.Printf("Stats: %#v", icmpMsg)
 			case <-quit:
 				// Logger.Printf("! Stopping the scheduler")

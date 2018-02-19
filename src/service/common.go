@@ -5,6 +5,9 @@ import (
 	"log"
 )
 
+// Logger is the standard logger for the whole project. It can be used as
+// a normal logger from the standard library via the Printf function (no other
+// function has been exported).
 var Logger StdLogger = log.New(ioutil.Discard, "[moreping]", log.LstdFlags)
 
 // StdLogger is inspired by the Sarama package (a Kafka client)
