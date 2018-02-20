@@ -1,9 +1,9 @@
-package service_test
+package moreping_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/tappoz/moreping/src/service"
+	"github.com/tappoz/moreping/src/moreping"
 )
 
 var _ = Describe("Common", func() {
@@ -14,7 +14,7 @@ var _ = Describe("Common", func() {
 			// TODO check why it works only if first element is setup as current avg
 			currAvg := float32(10)
 			for i := 1; i < len(sameNumSlice); i++ {
-				currAvg := service.InPlaceAvg(currAvg, sameNumSlice[i], i)
+				currAvg := moreping.InPlaceAvg(currAvg, sameNumSlice[i], i)
 				Expect(currAvg).To(Equal(float32(10)))
 			}
 		})

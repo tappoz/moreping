@@ -1,13 +1,11 @@
-package service
+package moreping
 
 import (
 	"time"
-
-	"github.com/tappoz/moreping/src/model"
 )
 
-var tcpBatchChan = make(chan model.TcpBatch)
-var icmpBatchChan = make(chan model.IcmpBatch)
+var tcpBatchChan = make(chan TcpBatch)
+var icmpBatchChan = make(chan IcmpBatch)
 
 // TCPBatchFunc is a "func" type that can be used to schedule TCP dials
 func TCPBatchFunc(websites []string, tcpPorts []int, batchSize int) func() {

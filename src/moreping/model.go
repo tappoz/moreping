@@ -1,4 +1,4 @@
-package model
+package moreping
 
 import (
 	"time"

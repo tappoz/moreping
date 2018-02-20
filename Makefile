@@ -8,10 +8,9 @@ godep-restore:
 	cd src && godep restore
 	@echo "\n"
 
-
 test: godep-restore
 	@echo "\n\n\nTASK: unit and integration tests (ICMP and TCP dials)\n"
-	sudo -E env "PATH=$$PATH" go test -v ./src/service/...
+	sudo -E env "PATH=$$PATH" go test -v ./src/moreping/...
 	@echo "\n"
 
 build: test

@@ -1,4 +1,4 @@
-package service
+package moreping
 
 import (
 	"io/ioutil"

@@ -1,13 +1,12 @@
-// Package service contains the main components dealing with ICMP calls (ping),
+// Package moreping contains the main components dealing with ICMP calls (ping),
 // TCP dials, and scheduling.
-package service
+package moreping
 
 import (
 	"fmt"
 	"net"
 	"time"
 
-	"github.com/tappoz/moreping/src/model"
 	"github.com/tatsushid/go-fastping"
 )
 
@@ -16,10 +15,10 @@ const InfiniteLatency = 9999 * time.Millisecond
 
 // TCPPinger provides the functionality to dial IP addresses on a given TCP port.
 type TCPPinger interface {
-	DialBatchIP(targetIP string, targetPort int, batchSize int) model.TcpBatch
+	DialBatchIP(targetIP string, targetPort int, batchSize int) TcpBatch
 	AsyncTCPDialBatchesForIP(targetIP string, batchSize int)
 
-	DialIP(targetIP string, targetPort int) model.TcpCall
+	DialIP(targetIP string, targetPort int) TcpCall
 	AsyncTCPDialsForIP(targetIP string)
 
 	SpawnTCPDials(siteNetDetails []string)
@@ -29,13 +28,13 @@ type TCPPinger interface {
 type tcpPinger struct {
 	ports        []int
 	timeout      time.Duration
-	msgChan      chan model.TcpCall
-	msgBatchChan chan model.TcpBatch
+	msgChan      chan TcpCall
+	msgBatchChan chan TcpBatch
 	batchSize    int
 }
 
 // NewTCPPinger creates a new instance of the TCP pinger
-func NewTCPPinger(tcpPorts []int, tcpTimeout time.Duration, tcpChan chan model.TcpCall) TCPPinger {
+func NewTCPPinger(tcpPorts []int, tcpTimeout time.Duration, tcpChan chan TcpCall) TCPPinger {
 	Logger.Printf("The TCP pinger is using this port list: %v\n", tcpPorts)
 	return &tcpPinger{
 		ports:   tcpPorts,
@@ -45,7 +44,7 @@ func NewTCPPinger(tcpPorts []int, tcpTimeout time.Duration, tcpChan chan model.T
 }
 
 // NewTCPBatchPinger creates a new instance of the TCP *batch* pinger
-func NewTCPBatchPinger(tcpPorts []int, tcpTimeout time.Duration, tcpBatchChan chan model.TcpBatch) TCPPinger {
+func NewTCPBatchPinger(tcpPorts []int, tcpTimeout time.Duration, tcpBatchChan chan TcpBatch) TCPPinger {
 	Logger.Printf("The TCP batch pinger is using this port list: %v\n", tcpPorts)
 	return &tcpPinger{
 		ports:   tcpPorts,
@@ -56,7 +55,7 @@ func NewTCPBatchPinger(tcpPorts []int, tcpTimeout time.Duration, tcpBatchChan ch
 }
 
 // DialBatchIP performs a batch of TCP dials providing stats regarding the calls
-func (t *tcpPinger) DialBatchIP(targetIP string, targetPort int, batchSize int) model.TcpBatch {
+func (t *tcpPinger) DialBatchIP(targetIP string, targetPort int, batchSize int) TcpBatch {
 	avgLatency := float32(0)
 	unSuccessCount := 0
 	for i := 0; i < batchSize; i++ {
@@ -73,7 +72,7 @@ func (t *tcpPinger) DialBatchIP(targetIP string, targetPort int, batchSize int) 
 	pctPacketLoss := float32(unSuccessCount) / float32(batchSize)
 	// Logger.Printf("Percentage of packet loss: %f\n", pctPacketLoss)
 
-	return model.TcpBatch{
+	return TcpBatch{
 		IpAddress: targetIP, TcpPort: targetPort,
 		Expertiments: batchSize,
 		PctPcktLoss:  pctPacketLoss,
@@ -82,12 +81,12 @@ func (t *tcpPinger) DialBatchIP(targetIP string, targetPort int, batchSize int) 
 }
 
 // DialIP performs a TCP dial for a given IP address and TCP port
-func (t *tcpPinger) DialIP(targetIP string, targetPort int) model.TcpCall {
+func (t *tcpPinger) DialIP(targetIP string, targetPort int) TcpCall {
 	start := time.Now()
 	tcpAddress := fmt.Sprintf("%s:%d", targetIP, targetPort)
 	// Logger.Printf("The TCP address to dial is: %v with timeout (duration): %v\n", tcpAddress, t.timeout)
 	conn, err := net.DialTimeout("tcp", tcpAddress, t.timeout)
-	tcpProtoMsg := model.TcpCall{IpAddress: targetIP, TcpPort: targetPort}
+	tcpProtoMsg := TcpCall{IpAddress: targetIP, TcpPort: targetPort}
 	if err != nil {
 		tcpProtoMsg.Latency = InfiniteLatency
 		tcpProtoMsg.Success = false
@@ -151,7 +150,7 @@ func (t *tcpPinger) SpawnTCPDialBatches(siteNetDetails []string, batchSize int) 
 // This is due to how raw sockets work and the internals of the ICMP protocol.
 type IcmpPinger interface {
 	PingIP(targetIP string)
-	PingBatchIP(targetIP string, batchSize int) model.IcmpBatch
+	PingBatchIP(targetIP string, batchSize int) IcmpBatch
 	AsyncPingBatchIP(targetIP string, batchSize int)
 	SpawnPings(ips []string)
 	SpawnBatchPings(ips []string, batchSize int)
@@ -159,14 +158,14 @@ type IcmpPinger interface {
 
 type icmpPinger struct {
 	timoutForIcmpCall time.Duration
-	msgChan           chan model.IcmpCall
-	batchMsgChan      chan model.IcmpBatch
+	msgChan           chan IcmpCall
+	batchMsgChan      chan IcmpBatch
 }
 
 // NewIcmpPinger is intended to be used when running `PingIP(...)`
 // just unique ICMP calls with their latency
 // no batch calls to get the pct of loss packets
-func NewIcmpPinger(timeout time.Duration, icmpChan chan model.IcmpCall) IcmpPinger {
+func NewIcmpPinger(timeout time.Duration, icmpChan chan IcmpCall) IcmpPinger {
 	return &icmpPinger{
 		timoutForIcmpCall: timeout,
 		msgChan:           icmpChan,
@@ -176,11 +175,11 @@ func NewIcmpPinger(timeout time.Duration, icmpChan chan model.IcmpCall) IcmpPing
 
 // NewIcmpBatchPinger is intended to be used when running `PingBatchIP(...)`
 // batch calls to get the pct of loss packets based on multiple ICMP calls (with their latency)
-func NewIcmpBatchPinger(timeout time.Duration, icmpBatchChan chan model.IcmpBatch) IcmpPinger {
+func NewIcmpBatchPinger(timeout time.Duration, icmpBatchChan chan IcmpBatch) IcmpPinger {
 	return &icmpPinger{
 		timoutForIcmpCall: timeout,
 		batchMsgChan:      icmpBatchChan,
-		msgChan:           make(chan model.IcmpCall), // this is not exposed!
+		msgChan:           make(chan IcmpCall), // this is not exposed!
 	}
 }
 
@@ -196,28 +195,28 @@ func (i *icmpPinger) PingIP(targetIP string) {
 	ra, err := net.ResolveIPAddr("ip4:icmp", targetIP)
 	if err != nil {
 		// fmt.Println("Resolve error on IP:", targetIP)
-		i.msgChan <- model.IcmpCall{IpAddress: targetIP, Message: err.Error(), Success: false, Latency: InfiniteLatency}
+		i.msgChan <- IcmpCall{IpAddress: targetIP, Message: err.Error(), Success: false, Latency: InfiniteLatency}
 		return
 	}
 	p.AddIPAddr(ra)
 
 	p.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
 		// Logger.Printf("Received ICMP response for IP %v with latency %v", addr, rtt)
-		i.msgChan <- model.IcmpCall{IpAddress: addr.String(), Latency: time.Duration(rtt.Nanoseconds()), Success: true}
+		i.msgChan <- IcmpCall{IpAddress: addr.String(), Latency: time.Duration(rtt.Nanoseconds()), Success: true}
 		responseReceived = true
 		return
 	}
 	p.OnIdle = func() {
 		if !responseReceived {
 			// Logger.Printf("Idling on ICMP call to IP %v with timeout (duration) %v\n", targetIP, i.timoutForIcmpCall)
-			i.msgChan <- model.IcmpCall{IpAddress: targetIP, Message: "This ping call is on timeout", Latency: InfiniteLatency, Success: false}
+			i.msgChan <- IcmpCall{IpAddress: targetIP, Message: "This ping call is on timeout", Latency: InfiniteLatency, Success: false}
 		}
 		return
 	}
 	err = p.Run()
 	if err != nil {
 		// fmt.Println("Run error on IP:", targetIP) // TODO make something about running this as sudo! (e.g. error channel or panic here?)
-		i.msgChan <- model.IcmpCall{IpAddress: targetIP, Message: err.Error(), Success: false, Latency: InfiniteLatency}
+		i.msgChan <- IcmpCall{IpAddress: targetIP, Message: err.Error(), Success: false, Latency: InfiniteLatency}
 		return
 	}
 }
@@ -225,7 +224,7 @@ func (i *icmpPinger) PingIP(targetIP string) {
 // PingBatchIP dials via ICMP an IP address for a given amount of times.
 // The returned struct contains stats on the percentage of packet loss and
 // the average amount of time required to perform the calls.
-func (i *icmpPinger) PingBatchIP(targetIP string, batchSize int) model.IcmpBatch {
+func (i *icmpPinger) PingBatchIP(targetIP string, batchSize int) IcmpBatch {
 	// Logger.Printf("Running ICMP batch \n")
 	avgLatency := float32(0)
 	unSuccessCount := 0
@@ -245,7 +244,7 @@ func (i *icmpPinger) PingBatchIP(targetIP string, batchSize int) model.IcmpBatch
 	pctPacketLoss := float32(unSuccessCount) / float32(batchSize)
 	// Logger.Printf("Percentage of packet loss: %f\n", pctPacketLoss)
 
-	return model.IcmpBatch{
+	return IcmpBatch{
 		IpAddress:    targetIP,
 		Expertiments: batchSize,
 		PctPcktLoss:  pctPacketLoss,

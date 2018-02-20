@@ -1,4 +1,4 @@
-package service_test
+package moreping_test
 
 import (
 	"fmt"
@@ -7,8 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/tappoz/moreping/src/model"
-	"github.com/tappoz/moreping/src/service"
+	"github.com/tappoz/moreping/src/moreping"
 )
 
 var _ = Describe("NetDialers", func() {
@@ -19,8 +18,8 @@ var _ = Describe("NetDialers", func() {
 	Describe("ICMP pinger", func() {
 
 		icmpTimeout := 2 * time.Second
-		icmpChan := make(chan model.IcmpCall)
-		icmpPinger := service.NewIcmpPinger(icmpTimeout, icmpChan)
+		icmpChan := make(chan moreping.IcmpCall)
+		icmpPinger := moreping.NewIcmpPinger(icmpTimeout, icmpChan)
 
 		It("should synchronously ping google.com", func() {
 
@@ -41,21 +40,21 @@ var _ = Describe("NetDialers", func() {
 
 			Expect(icmpCallMsg.Message).To(HavePrefix(fmt.Sprintf("lookup %s", fooHost))) // on Windows: "lookup foo: no such host", on Linux: "lookup foo on 192.168.65.1:53: server misbehaving"
 			Expect(icmpCallMsg.IpAddress).To(Equal(fooHost))
-			Expect(icmpCallMsg.Latency).Should(Equal(service.InfiniteLatency))
+			Expect(icmpCallMsg.Latency).Should(Equal(moreping.InfiniteLatency))
 			Expect(icmpCallMsg.Success).To(Equal(false))
 		})
 
 		It("should synchronously and quickly timeout on an existing host 'google.com' and return an unsuccessful ICMP message", func() {
 
 			veryLowIcmpTimeout := 100 * time.Nanosecond
-			icmpPingerWithVeryLowTimeout := service.NewIcmpPinger(veryLowIcmpTimeout, icmpChan)
+			icmpPingerWithVeryLowTimeout := moreping.NewIcmpPinger(veryLowIcmpTimeout, icmpChan)
 
 			go icmpPingerWithVeryLowTimeout.PingIP(googleIP)
 			icmpCallMsg := <-icmpChan
 
 			Expect(icmpCallMsg.Success).To(Equal(false))
 			Expect(icmpCallMsg.IpAddress).To(Equal(googleIP))
-			Expect(icmpCallMsg.Latency).Should(Equal(service.InfiniteLatency))
+			Expect(icmpCallMsg.Latency).Should(Equal(moreping.InfiniteLatency))
 			Expect(icmpCallMsg.Message).To(Equal("This ping call is on timeout"))
 		})
 
@@ -73,8 +72,8 @@ var _ = Describe("NetDialers", func() {
 	Describe("ICMP batch pinger", func() {
 
 		icmpTimeout := 2 * time.Second
-		icmpBatchChan := make(chan model.IcmpBatch)
-		icmpBatchPinger := service.NewIcmpBatchPinger(icmpTimeout, icmpBatchChan)
+		icmpBatchChan := make(chan moreping.IcmpBatch)
+		icmpBatchPinger := moreping.NewIcmpBatchPinger(icmpTimeout, icmpBatchChan)
 
 		It("should synchronously perform a batch of ping calls to google.com", func() {
 			batchSize := 5
@@ -102,9 +101,9 @@ var _ = Describe("NetDialers", func() {
 	Describe("TCP dialer", func() {
 
 		tcpTimeout := 2 * time.Second
-		tcpChan := make(chan model.TcpCall)
+		tcpChan := make(chan moreping.TcpCall)
 		tcpPorts := []int{80, 443}
-		TCPPinger := service.NewTCPPinger(tcpPorts, tcpTimeout, tcpChan)
+		TCPPinger := moreping.NewTCPPinger(tcpPorts, tcpTimeout, tcpChan)
 
 		It("should synchronously dial google.com on port 80", func() {
 			tcpPort := 80
@@ -133,7 +132,7 @@ var _ = Describe("NetDialers", func() {
 
 			Expect(tcpCallMsg.IpAddress).To(Equal(fooHost))
 			Expect(tcpCallMsg.TcpPort).To(Equal(tcpPort))
-			Expect(tcpCallMsg.Latency).Should(Equal(service.InfiniteLatency))
+			Expect(tcpCallMsg.Latency).Should(Equal(moreping.InfiniteLatency))
 			Expect(tcpCallMsg.Success).To(Equal(false))
 		})
 
@@ -167,9 +166,9 @@ var _ = Describe("NetDialers", func() {
 	Describe("TCP batch dialer", func() {
 
 		tcpTimeout := 500 * time.Millisecond // trying to be strict on the timeout on Google
-		tcpBatchChan := make(chan model.TcpBatch)
+		tcpBatchChan := make(chan moreping.TcpBatch)
 		tcpPorts := []int{80, 443}
-		tcpBatchPinger := service.NewTCPBatchPinger(tcpPorts, tcpTimeout, tcpBatchChan)
+		tcpBatchPinger := moreping.NewTCPBatchPinger(tcpPorts, tcpTimeout, tcpBatchChan)
 		batchSize := 5
 
 		It("should synchronously perform a batch of dials to google.com on port 80", func() {
