@@ -4,6 +4,7 @@ This project aims at being a pinging (ICMP) and TCP dialing tool.
 
 ## Library
 [![GoDoc](https://godoc.org/github.com/tappoz/moreping/src/service?status.svg)](https://godoc.org/github.com/tappoz/moreping/src/service)
+[![Build Status](https://travis-ci.org/tappoz/moreping.svg?branch=master)](https://travis-ci.org/tappoz/moreping)
 
 This code can be used as a normal Go library to include in your Go project.
 Take a look at the tests in `src/service/net_dialers*` for more details.
