@@ -3,17 +3,21 @@ install: build
 	sudo mv src/cmd/moreping /usr/local/bin
 	@echo "\n"
 
-godep-restore:
-	@echo "\n\n\nTASK: godep restore\n"
-	cd src && godep restore
-	@echo "\n"
-
-test: godep-restore
-	@echo "\n\n\nTASK: unit and integration tests (ICMP and TCP dials)\n"
-	sudo -E env "PATH=$$PATH" go test -v ./src/moreping/...
+# sudo -E env "PATH=$$PATH" go test -v ./src/moreping/...
+# otherwise the "net" package says: "operation not permitted"
+test:
+	@echo "\n\n\nTASK: unit and integration tests\n"
+	go test -v ./src/moreping/... -run TestInPlaceAvg
+	go test -v ./src/moreping/... -run TestTCP
+	@echo "\n\n\nTASK: ICMP sudo integration tests\n"
+	sudo -E env "PATH=$$PATH" go test -v ./src/moreping/... -run TestICMP
 	@echo "\n"
 
 build: test
 	@echo "\n\n\nTASK: building the artifact\n"
-	cd src/cmd && go build -o moreping
+	mkdir -p out/
+	cd src/cmd && go build -o ../../out/moreping
 	@echo "\n"
+
+cmd-test: build
+	./src/cmd/moreping tcp --domain google.com --port 443

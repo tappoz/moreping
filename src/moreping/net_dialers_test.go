@@ -3,211 +3,216 @@ package moreping_test
 import (
 	"fmt"
 	"net"
+	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/tappoz/moreping/src/moreping"
 )
 
-var _ = Describe("NetDialers", func() {
+func TestICMPSyncPing(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
 	googleIPs, _ := net.LookupHost("google.com")
-	googleIP := googleIPs[0]
+	// fmt.Println(googleIPs)
+	googleIPv4 := googleIPs[1]
 
-	Describe("ICMP pinger", func() {
+	icmpTimeout := 2 * time.Second
+	icmpChan := make(chan moreping.IcmpCall)
+	icmpPinger := moreping.NewIcmpPinger(icmpTimeout, icmpChan)
 
-		icmpTimeout := 2 * time.Second
-		icmpChan := make(chan moreping.IcmpCall)
-		icmpPinger := moreping.NewIcmpPinger(icmpTimeout, icmpChan)
+	// it should synchronously ping google.com"
+	go icmpPinger.PingIP(googleIPv4)
+	icmpCallMsg := <-icmpChan
+	// fmt.Printf("%+v", icmpCallMsg)
+	g.Expect(icmpCallMsg.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(icmpCallMsg.Latency).Should(gomega.BeNumerically("<=", icmpTimeout))
+	g.Expect(icmpCallMsg.Success).To(gomega.Equal(true))
 
-		It("should synchronously ping google.com", func() {
+	// it should synchronously ping the non-existing host 'foo' then timeout and return an unsuccessful ICMP message
+	fooHost := "foo"
+	go icmpPinger.PingIP(fooHost)
+	icmpCallMsg = <-icmpChan
+	g.Expect(icmpCallMsg.Message).To(gomega.HavePrefix(fmt.Sprintf("lookup %s", fooHost))) // on Windows: "lookup foo: no such host", on Linux: "lookup foo on 192.168.65.1:53: server misbehaving"
+	g.Expect(icmpCallMsg.IpAddress).To(gomega.Equal(fooHost))
+	g.Expect(icmpCallMsg.Latency).Should(gomega.Equal(moreping.InfiniteLatency))
+	g.Expect(icmpCallMsg.Success).To(gomega.Equal(false))
 
-			go icmpPinger.PingIP(googleIP)
-			icmpCallMsg := <-icmpChan
+	// it should synchronously and quickly timeout on an existing host 'google.com' and return an unsuccessful ICMP message
+	veryLowIcmpTimeout := 100 * time.Nanosecond
+	icmpPingerWithVeryLowTimeout := moreping.NewIcmpPinger(veryLowIcmpTimeout, icmpChan)
+	go icmpPingerWithVeryLowTimeout.PingIP(googleIPv4)
+	icmpCallMsg = <-icmpChan
+	g.Expect(icmpCallMsg.Success).To(gomega.Equal(false))
+	g.Expect(icmpCallMsg.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(icmpCallMsg.Latency).Should(gomega.Equal(moreping.InfiniteLatency))
+	g.Expect(icmpCallMsg.Message).To(gomega.Equal("This ping call is on timeout"))
+}
 
-			Expect(icmpCallMsg.IpAddress).To(Equal(googleIP))
-			Expect(icmpCallMsg.Latency).Should(BeNumerically("<=", icmpTimeout))
-			Expect(icmpCallMsg.Success).To(Equal(true))
-		})
+func TestICMPAsyncPing(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-		It("should synchronously ping the non-existing host 'foo' then timeout and return an unsuccessful ICMP message", func() {
+	googleIPs, _ := net.LookupHost("google.com")
+	// fmt.Println(googleIPs)
+	googleIPv4 := googleIPs[1]
 
-			fooHost := "foo"
+	icmpTimeout := 2 * time.Second
+	icmpChan := make(chan moreping.IcmpCall)
+	icmpPinger := moreping.NewIcmpPinger(icmpTimeout, icmpChan)
 
-			go icmpPinger.PingIP(fooHost)
-			icmpCallMsg := <-icmpChan
+	// it should asynchronously ping google.com
+	icmpPinger.SpawnPings([]string{googleIPv4})
+	icmpCallMsg := <-icmpChan
+	g.Expect(icmpCallMsg.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(icmpCallMsg.Latency).Should(gomega.BeNumerically("<=", float32(icmpTimeout)))
+	g.Expect(icmpCallMsg.Success).To(gomega.Equal(true))
+}
 
-			Expect(icmpCallMsg.Message).To(HavePrefix(fmt.Sprintf("lookup %s", fooHost))) // on Windows: "lookup foo: no such host", on Linux: "lookup foo on 192.168.65.1:53: server misbehaving"
-			Expect(icmpCallMsg.IpAddress).To(Equal(fooHost))
-			Expect(icmpCallMsg.Latency).Should(Equal(moreping.InfiniteLatency))
-			Expect(icmpCallMsg.Success).To(Equal(false))
-		})
+func TestICMPBatchPing(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-		It("should synchronously and quickly timeout on an existing host 'google.com' and return an unsuccessful ICMP message", func() {
+	googleIPs, _ := net.LookupHost("google.com")
+	// fmt.Println(googleIPs)
+	googleIPv4 := googleIPs[1]
 
-			veryLowIcmpTimeout := 100 * time.Nanosecond
-			icmpPingerWithVeryLowTimeout := moreping.NewIcmpPinger(veryLowIcmpTimeout, icmpChan)
+	icmpTimeout := 2 * time.Second
+	icmpBatchChan := make(chan moreping.IcmpBatch)
+	icmpBatchPinger := moreping.NewIcmpBatchPinger(icmpTimeout, icmpBatchChan)
+	batchSize := 5
 
-			go icmpPingerWithVeryLowTimeout.PingIP(googleIP)
-			icmpCallMsg := <-icmpChan
+	// it should synchronously perform a batch of ping calls to google.com
+	icmpBatch := icmpBatchPinger.PingBatchIP(googleIPv4, batchSize)
+	g.Expect(icmpBatch.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(icmpBatch.Expertiments).To(gomega.Equal(batchSize))
+	g.Expect(icmpBatch.PctPcktLoss).To(gomega.Equal(float32(0.0))) // assuming Google always responds promptly
+	g.Expect(icmpBatch.AvgLatency).Should(gomega.BeNumerically("<=", icmpTimeout))
 
-			Expect(icmpCallMsg.Success).To(Equal(false))
-			Expect(icmpCallMsg.IpAddress).To(Equal(googleIP))
-			Expect(icmpCallMsg.Latency).Should(Equal(moreping.InfiniteLatency))
-			Expect(icmpCallMsg.Message).To(Equal("This ping call is on timeout"))
-		})
+	// it should asynchronously perform a batch of ping calls to google.com
+	icmpBatchPinger.AsyncPingBatchIP(googleIPv4, batchSize)
+	icmpBatch = <-icmpBatchChan
+	g.Expect(icmpBatch.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(icmpBatch.Expertiments).To(gomega.Equal(batchSize))
+	g.Expect(icmpBatch.PctPcktLoss).To(gomega.Equal(float32(0.0))) // assuming Google always responds promptly
+	g.Expect(icmpBatch.AvgLatency).Should(gomega.BeNumerically("<=", icmpTimeout))
+}
 
-		It("should asynchronously ping google.com", func() {
-			icmpPinger.SpawnPings([]string{googleIP})
+func TestTCPSyncDial(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-			icmpCallMsg := <-icmpChan
+	googleIPs, _ := net.LookupHost("google.com")
+	// fmt.Println(googleIPs)
+	googleIPv4 := googleIPs[1]
 
-			Expect(icmpCallMsg.IpAddress).To(Equal(googleIP))
-			Expect(icmpCallMsg.Latency).Should(BeNumerically("<=", float32(icmpTimeout)))
-			Expect(icmpCallMsg.Success).To(Equal(true))
-		})
-	})
+	tcpTimeout := 2 * time.Second
+	tcpChan := make(chan moreping.TcpCall)
+	tcpPorts := []int{80, 443}
+	TCPPinger := moreping.NewTCPPinger(tcpPorts, tcpTimeout, tcpChan)
 
-	Describe("ICMP batch pinger", func() {
+	// it should synchronously dial google.com on port 80
+	tcpPort := 80
+	tcpCallMsg := TCPPinger.DialIP(googleIPv4, tcpPort)
+	g.Expect(tcpCallMsg.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(tcpCallMsg.TcpPort).To(gomega.Equal(tcpPort))
+	g.Expect(tcpCallMsg.Latency).Should(gomega.BeNumerically("<=", tcpTimeout))
+	g.Expect(tcpCallMsg.Success).To(gomega.Equal(true))
 
-		icmpTimeout := 2 * time.Second
-		icmpBatchChan := make(chan moreping.IcmpBatch)
-		icmpBatchPinger := moreping.NewIcmpBatchPinger(icmpTimeout, icmpBatchChan)
+	// it should synchronously dial google.com on port 443
+	tcpPort = 443
+	tcpCallMsg = TCPPinger.DialIP(googleIPv4, tcpPort)
+	g.Expect(tcpCallMsg.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(tcpCallMsg.TcpPort).To(gomega.Equal(tcpPort))
+	g.Expect(tcpCallMsg.Latency).Should(gomega.BeNumerically("<=", tcpTimeout))
+	g.Expect(tcpCallMsg.Success).To(gomega.Equal(true))
 
-		It("should synchronously perform a batch of ping calls to google.com", func() {
-			batchSize := 5
-			icmpBatch := icmpBatchPinger.PingBatchIP(googleIP, batchSize)
+	// it should synchronously dial 'foo' on port 666 then timeout and give back an unsuccessful TCP call message
+	fooHost := "foo"
+	tcpPort = 666
+	tcpCallMsg = TCPPinger.DialIP(fooHost, tcpPort)
+	g.Expect(tcpCallMsg.IpAddress).To(gomega.Equal(fooHost))
+	g.Expect(tcpCallMsg.TcpPort).To(gomega.Equal(tcpPort))
+	g.Expect(tcpCallMsg.Latency).Should(gomega.Equal(moreping.InfiniteLatency))
+	g.Expect(tcpCallMsg.Success).To(gomega.Equal(false))
+}
 
-			Expect(icmpBatch.IpAddress).To(Equal(googleIP))
-			Expect(icmpBatch.Expertiments).To(Equal(batchSize))
-			Expect(icmpBatch.PctPcktLoss).To(Equal(float32(0.0))) // assuming Google always responds promptly
-			Expect(icmpBatch.AvgLatency).Should(BeNumerically("<=", icmpTimeout))
-		})
+func TestTCPAsyncDial(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-		It("should asynchronously perform a batch of ping calls to google.com", func() {
-			batchSize := 5
+	googleIPs, _ := net.LookupHost("google.com")
+	// fmt.Println(googleIPs)
+	googleIPv4 := googleIPs[1]
 
-			icmpBatchPinger.AsyncPingBatchIP(googleIP, batchSize)
-			icmpBatch := <-icmpBatchChan
+	tcpTimeout := 2 * time.Second
+	tcpChan := make(chan moreping.TcpCall)
+	tcpPorts := []int{80, 443}
+	TCPPinger := moreping.NewTCPPinger(tcpPorts, tcpTimeout, tcpChan)
 
-			Expect(icmpBatch.IpAddress).To(Equal(googleIP))
-			Expect(icmpBatch.Expertiments).To(Equal(batchSize))
-			Expect(icmpBatch.PctPcktLoss).To(Equal(float32(0.0))) // assuming Google always responds promptly
-			Expect(icmpBatch.AvgLatency).Should(BeNumerically("<=", icmpTimeout))
-		})
-	})
+	// it should asynchronously dial google.com on all the available TCP ports
+	TCPPinger.AsyncTCPDialsForIP(googleIPv4)
+	for range tcpPorts {
+		tcpCallMsg := <-tcpChan
+		//fmt.Printf("the msg: %v\n", tcpCallMsg)
+		g.Expect(tcpCallMsg.IpAddress).To(gomega.Equal(googleIPv4))
+		g.Expect(tcpPorts).To(gomega.ContainElement(tcpCallMsg.TcpPort))
+		g.Expect(tcpCallMsg.Latency).Should(gomega.BeNumerically("<=", tcpTimeout))
+		g.Expect(tcpCallMsg.Success).To(gomega.Equal(true))
+	}
 
-	Describe("TCP dialer", func() {
+	// it should asynchronously dial google.com (from an array of hosts) on all the available TCP ports
+	TCPPinger.SpawnTCPDials([]string{googleIPv4})
+	for range tcpPorts {
+		tcpCallMsg := <-tcpChan
+		//fmt.Printf("the msg: %v\n", tcpCallMsg)
+		g.Expect(tcpCallMsg.IpAddress).To(gomega.Equal(googleIPv4))
+		g.Expect(tcpPorts).To(gomega.ContainElement(tcpCallMsg.TcpPort))
+		g.Expect(tcpCallMsg.Latency).Should(gomega.BeNumerically("<=", tcpTimeout))
+		g.Expect(tcpCallMsg.Success).To(gomega.Equal(true))
+	}
+}
 
-		tcpTimeout := 2 * time.Second
-		tcpChan := make(chan moreping.TcpCall)
-		tcpPorts := []int{80, 443}
-		TCPPinger := moreping.NewTCPPinger(tcpPorts, tcpTimeout, tcpChan)
+func TestTCPBatchDial(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-		It("should synchronously dial google.com on port 80", func() {
-			tcpPort := 80
-			tcpCallMsg := TCPPinger.DialIP(googleIP, tcpPort)
+	googleIPs, _ := net.LookupHost("google.com")
+	// fmt.Println(googleIPs)
+	googleIPv4 := googleIPs[1]
 
-			Expect(tcpCallMsg.IpAddress).To(Equal(googleIP))
-			Expect(tcpCallMsg.TcpPort).To(Equal(tcpPort))
-			Expect(tcpCallMsg.Latency).Should(BeNumerically("<=", tcpTimeout))
-			Expect(tcpCallMsg.Success).To(Equal(true))
-		})
+	tcpTimeout := 500 * time.Millisecond // trying to be strict on the timeout on Google
+	tcpBatchChan := make(chan moreping.TcpBatch)
+	tcpPorts := []int{80, 443}
+	tcpBatchPinger := moreping.NewTCPBatchPinger(tcpPorts, tcpTimeout, tcpBatchChan)
+	batchSize := 5
 
-		It("should synchronously dial google.com on port 443", func() {
-			tcpPort := 443
-			tcpCallMsg := TCPPinger.DialIP(googleIP, tcpPort)
+	// it should synchronously perform a batch of dials to google.com on port 80
+	tcpPort := 80 // tcpPorts[0]
+	tcpBatch := tcpBatchPinger.DialBatchIP(googleIPv4, tcpPort, batchSize)
+	g.Expect(tcpBatch.IpAddress).To(gomega.Equal(googleIPv4))
+	g.Expect(tcpBatch.TcpPort).To(gomega.Equal(tcpPort))
+	g.Expect(tcpBatch.Expertiments).To(gomega.Equal(batchSize))
+	g.Expect(tcpBatch.PctPcktLoss).To(gomega.Equal(float32(0.0))) // assuming Google always responds promptly
+	g.Expect(tcpBatch.AvgLatency).Should(gomega.BeNumerically("<=", tcpTimeout))
 
-			Expect(tcpCallMsg.IpAddress).To(Equal(googleIP))
-			Expect(tcpCallMsg.TcpPort).To(Equal(tcpPort))
-			Expect(tcpCallMsg.Latency).Should(BeNumerically("<=", tcpTimeout))
-			Expect(tcpCallMsg.Success).To(Equal(true))
-		})
+	// it should asynchronously dial google.com on all the available TCP ports
+	tcpBatchPinger.AsyncTCPDialBatchesForIP(googleIPv4, batchSize)
+	for range tcpPorts {
+		tcpBatch := <-tcpBatchChan
 
-		It("should synchronously dial 'foo' on port 666 then timeout and give back an unsuccessful TCP call message", func() {
-			fooHost := "foo"
-			tcpPort := 666
-			tcpCallMsg := TCPPinger.DialIP(fooHost, tcpPort)
+		g.Expect(tcpBatch.IpAddress).To(gomega.Equal(googleIPv4))
+		g.Expect(tcpPorts).To(gomega.ContainElement(tcpBatch.TcpPort))
+		g.Expect(tcpBatch.Expertiments).To(gomega.Equal(batchSize))
+		g.Expect(tcpBatch.PctPcktLoss).To(gomega.Equal(float32(0.0))) // assuming Google always responds promptly
+		g.Expect(tcpBatch.AvgLatency).Should(gomega.BeNumerically("<=", tcpTimeout))
+	}
 
-			Expect(tcpCallMsg.IpAddress).To(Equal(fooHost))
-			Expect(tcpCallMsg.TcpPort).To(Equal(tcpPort))
-			Expect(tcpCallMsg.Latency).Should(Equal(moreping.InfiniteLatency))
-			Expect(tcpCallMsg.Success).To(Equal(false))
-		})
+	// it should asynchronously dial (a batch of calls) google.com (from an array of hosts) on all the available TCP ports
+	tcpBatchPinger.SpawnTCPDialBatches([]string{googleIPv4}, batchSize)
+	for range tcpPorts {
+		tcpBatch := <-tcpBatchChan
 
-		It("should asynchronously dial google.com on all the available TCP ports", func() {
-			TCPPinger.AsyncTCPDialsForIP(googleIP)
+		g.Expect(tcpBatch.IpAddress).To(gomega.Equal(googleIPv4))
+		g.Expect(tcpPorts).To(gomega.ContainElement(tcpBatch.TcpPort))
+		g.Expect(tcpBatch.Expertiments).To(gomega.Equal(batchSize))
+		g.Expect(tcpBatch.PctPcktLoss).To(gomega.Equal(float32(0.0))) // assuming Google always responds promptly
+		g.Expect(tcpBatch.AvgLatency).Should(gomega.BeNumerically("<=", tcpTimeout))
+	}
 
-			for range tcpPorts {
-				tcpCallMsg := <-tcpChan
-				//fmt.Printf("the msg: %v\n", tcpCallMsg)
-				Expect(tcpCallMsg.IpAddress).To(Equal(googleIP))
-				Expect(tcpPorts).To(ContainElement(tcpCallMsg.TcpPort))
-				Expect(tcpCallMsg.Latency).Should(BeNumerically("<=", tcpTimeout))
-				Expect(tcpCallMsg.Success).To(Equal(true))
-			}
-		})
-
-		It("should asynchronously dial google.com (from an array of hosts) on all the available TCP ports", func() {
-			TCPPinger.SpawnTCPDials([]string{googleIP})
-
-			for range tcpPorts {
-				tcpCallMsg := <-tcpChan
-				//fmt.Printf("the msg: %v\n", tcpCallMsg)
-				Expect(tcpCallMsg.IpAddress).To(Equal(googleIP))
-				Expect(tcpPorts).To(ContainElement(tcpCallMsg.TcpPort))
-				Expect(tcpCallMsg.Latency).Should(BeNumerically("<=", tcpTimeout))
-				Expect(tcpCallMsg.Success).To(Equal(true))
-			}
-		})
-	})
-
-	Describe("TCP batch dialer", func() {
-
-		tcpTimeout := 500 * time.Millisecond // trying to be strict on the timeout on Google
-		tcpBatchChan := make(chan moreping.TcpBatch)
-		tcpPorts := []int{80, 443}
-		tcpBatchPinger := moreping.NewTCPBatchPinger(tcpPorts, tcpTimeout, tcpBatchChan)
-		batchSize := 5
-
-		It("should synchronously perform a batch of dials to google.com on port 80", func() {
-			tcpPort := 80 // tcpPorts[0]
-			tcpBatch := tcpBatchPinger.DialBatchIP(googleIP, tcpPort, batchSize)
-
-			Expect(tcpBatch.IpAddress).To(Equal(googleIP))
-			Expect(tcpBatch.TcpPort).To(Equal(tcpPort))
-			Expect(tcpBatch.Expertiments).To(Equal(batchSize))
-			Expect(tcpBatch.PctPcktLoss).To(Equal(float32(0.0))) // assuming Google always responds promptly
-			Expect(tcpBatch.AvgLatency).Should(BeNumerically("<=", tcpTimeout))
-		})
-
-		It("should asynchronously dial google.com on all the available TCP ports", func() {
-			tcpBatchPinger.AsyncTCPDialBatchesForIP(googleIP, batchSize)
-
-			for range tcpPorts {
-				tcpBatch := <-tcpBatchChan
-
-				Expect(tcpBatch.IpAddress).To(Equal(googleIP))
-				Expect(tcpPorts).To(ContainElement(tcpBatch.TcpPort))
-				Expect(tcpBatch.Expertiments).To(Equal(batchSize))
-				Expect(tcpBatch.PctPcktLoss).To(Equal(float32(0.0))) // assuming Google always responds promptly
-				Expect(tcpBatch.AvgLatency).Should(BeNumerically("<=", tcpTimeout))
-			}
-		})
-
-		It("should asynchronously dial (a batch of calls) google.com (from an array of hosts) on all the available TCP ports", func() {
-			tcpBatchPinger.SpawnTCPDialBatches([]string{googleIP}, batchSize)
-
-			for range tcpPorts {
-				tcpBatch := <-tcpBatchChan
-
-				Expect(tcpBatch.IpAddress).To(Equal(googleIP))
-				Expect(tcpPorts).To(ContainElement(tcpBatch.TcpPort))
-				Expect(tcpBatch.Expertiments).To(Equal(batchSize))
-				Expect(tcpBatch.PctPcktLoss).To(Equal(float32(0.0))) // assuming Google always responds promptly
-				Expect(tcpBatch.AvgLatency).Should(BeNumerically("<=", tcpTimeout))
-			}
-		})
-	})
-})
+}
