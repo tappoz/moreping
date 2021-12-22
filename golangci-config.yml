@@ -1,0 +1,41 @@
+# golangci-lint linters --config golangci-config.yml
+run:
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  timeout: 2m
+
+  # include test files or not, default is true
+  tests: true
+
+linters:
+  enable:
+    - asciicheck
+    - bodyclose
+    - cyclop
+    - deadcode
+    - dupl
+    - errcheck
+    - errorlint
+    - gocognit
+    - goconst
+    - gocritic
+    - godot
+    - gofmt
+    - gosec
+    - gosimple
+    - govet
+    - ifshort
+    - maligned
+    - misspell
+    - noctx
+    - nestif
+    - staticcheck
+    - structcheck
+    - sqlclosecheck
+    - stylecheck
+    - testpackage
+    - thelper
+    - unparam
+    - unused
+    - whitespace
+  disable:
+    - gci

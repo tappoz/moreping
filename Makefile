@@ -25,6 +25,19 @@ cmd-test: build
 	$(OUT_PATH)/moreping tcp --domain google.com --port 443
 	$(call log_this,"DONE")
 
+# docs: https://golangci-lint.run/usage/install/#linux-and-windows
+install-golangci-lint:
+	$(call log_this,"Install golangci-lint")
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.43.0
+	$(call log_this,"Check golangci-lint")
+	golangci-lint --version
+	$(call log_this,"DONE")
+
+lint:
+	$(call log_this,"Lint the source code")
+	golangci-lint run --config golangci-config.yml
+	$(call log_this,"DONE")
+
 # --- helpers --- #
 
 # path details
